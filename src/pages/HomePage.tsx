@@ -1,138 +1,136 @@
-// Home page of the app.
-// Currently a demo placeholder "please wait" screen.
-// Replace this file with your actual app UI. Do not delete it to use some other file as homepage. Simply replace the entire contents of this file.
-
-import { useEffect, useMemo, useState } from 'react'
-import { Sparkles } from 'lucide-react'
-
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { HAS_TEMPLATE_DEMO, TemplateDemo } from '@/components/TemplateDemo'
-import { Button } from '@/components/ui/button'
-import { Toaster, toast } from '@/components/ui/sonner'
-
-function formatDuration(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const m = Math.floor(total / 60)
-  const s = total % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
+import React from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'framer-motion';
+import { format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
+import { Sparkles, Loader2, ClipboardList } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { TodoInput } from '@/components/TodoInput';
+import { TodoItem } from '@/components/TodoItem';
+import { Toaster, toast } from '@/components/ui/sonner';
+import type { Todo, ApiResponse } from '@shared/types';
 export function HomePage() {
-  const [coins, setCoins] = useState(0)
-  const [isRunning, setIsRunning] = useState(false)
-  const [startedAt, setStartedAt] = useState<number | null>(null)
-  const [elapsedMs, setElapsedMs] = useState(0)
-
-  useEffect(() => {
-    if (!isRunning || startedAt === null) return
-
-    const t = setInterval(() => {
-      setElapsedMs(Date.now() - startedAt)
-    }, 250)
-
-    return () => clearInterval(t)
-  }, [isRunning, startedAt])
-
-  const formatted = useMemo(() => formatDuration(elapsedMs), [elapsedMs])
-
-  const onPleaseWait = () => {
-    setCoins((c) => c + 1)
-
-    if (!isRunning) {
-      // Resume from the current elapsed time
-      setStartedAt(Date.now() - elapsedMs)
-      setIsRunning(true)
-      toast.success('Building your app…', {
-        description: "Hang tight — we're setting everything up.",
-      })
-      return
+  const queryClient = useQueryClient();
+  const today = format(new Date(), 'EEEE, MMMM do');
+  const { data: todos = [], isLoading } = useQuery({
+    queryKey: ['todos'],
+    queryFn: async () => {
+      const res = await fetch('/api/todos');
+      const json = await res.json() as ApiResponse<Todo[]>;
+      return json.data ?? [];
     }
-
-    setIsRunning(false)
-    toast.info('Still working…', {
-      description: 'You can come back in a moment.',
-    })
-  }
-
-  const onReset = () => {
-    setCoins(0)
-    setIsRunning(false)
-    setStartedAt(null)
-    setElapsedMs(0)
-    toast('Reset complete')
-  }
-
-  const onAddCoin = () => {
-    setCoins((c) => c + 1)
-    toast('Coin added')
-  }
-
+  });
+  const addMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const newTodo: Todo = {
+        id: uuidv4(),
+        text,
+        completed: false,
+        createdAt: Date.now()
+      };
+      const res = await fetch('/api/todos', {
+        method: 'POST',
+        body: JSON.stringify(newTodo)
+      });
+      return (await res.json() as ApiResponse<Todo[]>).data;
+    },
+    onSuccess: (newData) => {
+      queryClient.setQueryData(['todos'], newData);
+      toast.success('Task added');
+    }
+  });
+  const toggleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/todos/${id}/toggle`, { method: 'PUT' });
+      return (await res.json() as ApiResponse<Todo[]>).data;
+    },
+    onSuccess: (newData) => {
+      queryClient.setQueryData(['todos'], newData);
+    }
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/todos/${id}`, { method: 'DELETE' });
+      return (await res.json() as ApiResponse<Todo[]>).data;
+    },
+    onSuccess: (newData) => {
+      queryClient.setQueryData(['todos'], newData);
+      toast.info('Task removed');
+    }
+  });
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground p-4 overflow-hidden relative">
+    <div className="min-h-screen bg-gray-50 dark:bg-background transition-colors duration-500">
       <ThemeToggle />
-      <div className="absolute inset-0 bg-gradient-rainbow opacity-10 dark:opacity-20 pointer-events-none" />
-
-      <div className="text-center space-y-8 relative z-10 animate-fade-in w-full">
-        <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center shadow-primary floating">
-            <Sparkles className="w-8 h-8 text-white rotating" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="py-12 md:py-24">
+          <div className="max-w-2xl mx-auto space-y-12">
+            {/* Header Section */}
+            <header className="space-y-4 text-center animate-fade-in">
+              <div className="flex justify-center mb-6">
+                <div className="p-3 bg-indigo-600 rounded-2xl shadow-glow rotate-3">
+                  <Sparkles className="w-8 h-8 text-white" />
+                </div>
+              </div>
+              <h1 className="text-4xl md:text-6xl font-display font-bold tracking-tight text-foreground">
+                Lumin <span className="text-indigo-600">Tasks</span>
+              </h1>
+              <p className="text-muted-foreground text-lg font-medium">
+                {today}
+              </p>
+            </header>
+            {/* Input Section */}
+            <section className="relative z-10">
+              <TodoInput 
+                onAdd={(text) => addMutation.mutate(text)} 
+                disabled={addMutation.isPending}
+              />
+            </section>
+            {/* List Section */}
+            <section className="space-y-6">
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+                  <p>Illuminating your tasks...</p>
+                </div>
+              ) : todos.length === 0 ? (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-20 border-2 border-dashed rounded-3xl space-y-4"
+                >
+                  <div className="flex justify-center">
+                    <ClipboardList className="h-12 w-12 text-muted-foreground/30" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xl font-semibold text-foreground">All clear</p>
+                    <p className="text-muted-foreground">Enjoy your day or start a new task.</p>
+                  </div>
+                </motion.div>
+              ) : (
+                <div className="space-y-3">
+                  <AnimatePresence mode="popLayout">
+                    {todos.map((todo) => (
+                      <TodoItem 
+                        key={todo.id} 
+                        todo={todo}
+                        onToggle={(id) => toggleMutation.mutate(id)}
+                        onDelete={(id) => deleteMutation.mutate(id)}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </section>
+            {/* Footer Stats */}
+            {!isLoading && todos.length > 0 && (
+              <footer className="pt-8 text-center text-sm text-muted-foreground border-t">
+                {todos.filter(t => t.completed).length} of {todos.length} tasks completed
+              </footer>
+            )}
           </div>
         </div>
-
-        <div className="space-y-3">
-          <h1 className="text-5xl md:text-7xl font-display font-bold text-balance leading-tight">
-            Creating your <span className="text-gradient">app</span>
-          </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto text-pretty">
-            Your application would be ready soon.
-          </p>
-        </div>
-
-        {HAS_TEMPLATE_DEMO ? (
-          <div className="max-w-5xl mx-auto text-left">
-            <TemplateDemo />
-          </div>
-        ) : (
-          <>
-            <div className="flex justify-center gap-4">
-              <Button
-                size="lg"
-                onClick={onPleaseWait}
-                className="btn-gradient px-8 py-4 text-lg font-semibold hover:-translate-y-0.5 transition-all duration-200"
-                aria-live="polite"
-              >
-                Please Wait
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-center gap-6 text-sm text-muted-foreground">
-              <div>
-                Time elapsed:{' '}
-                <span className="font-medium tabular-nums text-foreground">{formatted}</span>
-              </div>
-              <div>
-                Coins:{' '}
-                <span className="font-medium tabular-nums text-foreground">{coins}</span>
-              </div>
-            </div>
-
-            <div className="flex justify-center gap-2">
-              <Button variant="outline" size="sm" onClick={onReset}>
-                Reset
-              </Button>
-              <Button variant="outline" size="sm" onClick={onAddCoin}>
-                Add Coin
-              </Button>
-            </div>
-          </>
-        )}
       </div>
-
-      <footer className="absolute bottom-8 text-center text-muted-foreground/80">
-        <p>Powered by Cloudflare</p>
-      </footer>
-
-      <Toaster richColors closeButton />
+      <Toaster position="bottom-center" richColors />
     </div>
-  )
+  );
 }
