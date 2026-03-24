@@ -2,7 +2,7 @@
 
 A modern, full-stack Todo application powered by Cloudflare Workers. This template provides a production-ready setup with a responsive React frontend, type-safe APIs using Hono, persistent storage via Durable Objects, and beautiful UI components from shadcn/ui.
 
-[![[cloudflarebutton]]](https://deploy.workers.cloudflare.com/?url=${repositoryUrl})
+[![[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/alexandergillie/lumin-todo-premium-task-management)]](https://deploy.workers.cloudflare.com/?url=${repositoryUrl})
 
 ## ✨ Features
 
@@ -133,7 +133,7 @@ curl -X POST http://localhost:3000/api/counter/increment
    ```
 
 4. **Instant Deploy**:
-   [![[cloudflarebutton]]](https://deploy.workers.cloudflare.com/?url=${repositoryUrl})
+   [![[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/alexandergillie/lumin-todo-premium-task-management)]](https://deploy.workers.cloudflare.com/?url=${repositoryUrl})
 
 Your app will be live at `https://your-project.pages.dev` (Pages) or `https://your-project.your-subdomain.workers.dev` (Workers).
 
